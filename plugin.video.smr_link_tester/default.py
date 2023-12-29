@@ -195,6 +195,8 @@ def play_link(link):
     logger.log('Playing Link: |%s|' % (link), log_utils.LOGDEBUG)
     if link.endswith('$$all'):
         hmf = resolveurl.HostedMediaFile(url=link[:-5], return_all=True)
+    elif link.endswith('$$subs'):
+        hmf = resolveurl.HostedMediaFile(url=link[:-6], subs=True)
     else:
         hmf = resolveurl.HostedMediaFile(url=link)
     if not hmf:
@@ -205,6 +207,7 @@ def play_link(link):
     logger.log('Link Supported: |%s| Resolvers: %s' % (link, ', '.join(resolvers)), log_utils.LOGDEBUG)
 
     try:
+        subs = {}
         if link.endswith('$$all'):
             allfiles = hmf.resolve()
             names = [x.get('name') for x in allfiles]
@@ -214,6 +217,10 @@ def play_link(link):
             stream_url = allfiles[item].get('link')
             if resolveurl.HostedMediaFile(stream_url):
                 stream_url = resolveurl.resolve(stream_url)
+        elif link.endswith('$$subs'):
+            resp = hmf.resolve()
+            stream_url = resp.get('url')
+            subs = resp.get('subs')
         else:
             stream_url = hmf.resolve()
         if not stream_url or not isinstance(stream_url, string_types):
@@ -230,10 +237,14 @@ def play_link(link):
         kodi.notify('Resolve Failed: %s' % (msg), duration=7500)
         return False
 
-    logger.log('Link Resolved: |%s|%s|' % (link, stream_url), log_utils.LOGDEBUG)
+    logger.log('Link Resolved: |%s|%s|%s|' % (link, stream_url, subs), log_utils.LOGDEBUG)
 
     listitem = xbmcgui.ListItem(path=stream_url)
     # listitem.setContentLookup(False)
+    if subs:
+        langs = list(subs.keys())
+        subtitle = subs.get(langs[0])
+        listitem.setSubtitles([subtitle])
     kodiver = kodi.get_kodi_version().major
     if kodiver > 16 and '.mpd' in stream_url:
         if kodiver < 19:
